@@ -63,8 +63,7 @@ public class SchemaService {
 			        entityManager.createNativeQuery(dropSchemaQuery).executeUpdate();
 			        schemaRepo.deleteById(schema_id);
 			        tableService.deleteTableDetailsBySchemaId(schema_id);
-			        
-			      					
+	      					
 				} catch (Exception e) {
 					System.out.println(e);
 				}
