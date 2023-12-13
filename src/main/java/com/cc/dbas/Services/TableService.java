@@ -114,4 +114,82 @@ public class TableService {
                 .getResultList();
         return TableDetailList;
     }
+    
+    @Transactional
+    public void addColumn(int tableId, Map<String, String> newColumn) {
+        // Fetch existing table details
+        Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+        if (optionalTableDetails.isPresent()) {
+            TableDetails tableDetails = optionalTableDetails.get();
+
+            // Get the schema name
+            Optional<Schema> optionalSchema = schemaRepo.findById(tableDetails.getSchemaId());
+            if (!optionalSchema.isPresent()) {
+                throw new RuntimeException("Schema not found");
+            }
+
+            String schemaName = optionalSchema.get().getSchemaName();
+            String tableName = tableDetails.getTableName();
+            String columnName = newColumn.get("columnName");
+            String dataType = newColumn.get("dataType");
+
+            // Execute native query to add a new column
+            String addColumnQuery = "ALTER TABLE " + schemaName + "." + tableName +
+                    " ADD COLUMN " + columnName + " " + dataType;
+            
+            entityManager.createNativeQuery(addColumnQuery).executeUpdate();
+            
+            Map<String, String> column = tableDetails.getColumns();
+            column.put(columnName, dataType);
+            tableDetails.setColumns(column);
+            tableDetails.setCreatedDatetime(tableDetails.getCreatedDatetime());
+            tableDetails.setUpdatedDatetime(new Date());
+
+            // Save the updated table details
+            tableRepo.save(tableDetails);
+            
+        } else {
+            throw new RuntimeException("Table not found");
+        }
+    }
+    
+    
+    @Transactional
+    public void deleteColumn(int tableId, String columnName) {
+        // Fetch existing table details
+        Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+        if (optionalTableDetails.isPresent()) {
+            TableDetails tableDetails = optionalTableDetails.get();
+
+            // Get the schema name
+            Optional<Schema> optionalSchema = schemaRepo.findById(tableDetails.getSchemaId());
+            if (!optionalSchema.isPresent()) {
+                throw new RuntimeException("Schema not found");
+            }
+
+            String schemaName = optionalSchema.get().getSchemaName();
+            String tableName = tableDetails.getTableName();
+
+            // Execute native query to drop the column
+            String dropColumnQuery = "ALTER TABLE " + schemaName + "." + tableName +
+                    " DROP COLUMN " + columnName;
+
+            entityManager.createNativeQuery(dropColumnQuery).executeUpdate();
+
+            // Remove the column from the map of columns
+            Map<String, String> columns = tableDetails.getColumns();
+            columns.remove(columnName);
+
+            // Update the columns field in TableDetails
+            tableDetails.setColumns(columns);
+            tableDetails.setUpdatedDatetime(new Date());
+
+            // Save the updated table details
+            tableRepo.save(tableDetails);
+
+        } else {
+            throw new RuntimeException("Table not found");
+        }
+    }
+
 }
