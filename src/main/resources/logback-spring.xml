@@ -1,0 +1,54 @@
+<configuration>
+    <property name="HOME_LOG" value="./logs/app.log" />
+    <property name="REQUEST_LOG" value="./logs/Request.log" />
+    
+    <appender name="FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HOME_LOG}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>./logs/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <totalSizeCap>20GB</totalSizeCap>
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %p %c{1} [%t] %m%n</pattern>
+        </encoder>
+    </appender>
+    
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <appender name="REQUEST-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${REQUEST_LOG}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>./logs/Request.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <totalSizeCap>20GB</totalSizeCap>
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %p %class{1} [%t] %m%n</pattern>
+        </encoder>
+    </appender>
+    
+      
+    <logger name="REQUEST" level="debug" additivity="true">
+        <appender-ref ref="REQUEST-ROLLING" />
+    </logger>
+
+    <logger name="org.springframework" level="info" additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
+    
+    <logger name="com.cc" level="debug" additivity="false">
+        <appender-ref ref="FILE-ROLLING" />
+    </logger>
+    
+    <root level="error">
+        <appender-ref ref="FILE-ROLLING" />
+        <appender-ref ref="CONSOLE" />
+    </root>
+</configuration>

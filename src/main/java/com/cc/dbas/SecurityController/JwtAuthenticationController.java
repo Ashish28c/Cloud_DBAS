@@ -2,6 +2,8 @@ package com.cc.dbas.SecurityController;
 
 import java.util.Date;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,49 +28,63 @@ import com.cc.dbas.jwtEntity.JwtResponse;
 @RestController
 @CrossOrigin
 public class JwtAuthenticationController {
-	
-	@Autowired
-	private UserRepo userRepo;
-	
-	@Autowired
-	private PasswordEncoder passwordEncoder;
-	
-	@Autowired
-	private AuthenticationManager authenticationManager;
 
-	@Autowired
-	private JwtTokenUtil jwtTokenUtil;
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationController.class);
 
-	@Autowired
-	private JwtUserDetailsService userDetailsService;
+    @Autowired
+    private UserRepo userRepo;
 
-	@RequestMapping(value = "users/authenticate", method = RequestMethod.POST)
-	public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequest authenticationRequest) throws Exception {
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
-		authenticate(authenticationRequest.getEmailID(), authenticationRequest.getPassword());
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
-		System.out.println(authenticationRequest.getEmailID());
-		final UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getEmailID());
+    @Autowired
+    private JwtTokenUtil jwtTokenUtil;
 
-		final String token = jwtTokenUtil.generateToken(userDetails);
+    @Autowired
+    private JwtUserDetailsService userDetailsService;
 
-		return ResponseEntity.ok(new JwtResponse(token));
-	}
+    @RequestMapping(value = "users/authenticate", method = RequestMethod.POST)
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequest authenticationRequest) throws Exception {
+        try {
+            authenticate(authenticationRequest.getEmailID(), authenticationRequest.getPassword());
 
-	@RequestMapping(value = "users/createuser", method = RequestMethod.POST)
-	public ResponseEntity<?> saveUser(@RequestBody Users user) throws Exception {
-		user.setCreatedTime(new Date());
-		user.setPassword(passwordEncoder.encode(user.getPassword()));
-		return ResponseEntity.ok(userRepo.save(user));
-	}
+            logger.info("User authenticated successfully: " + authenticationRequest.getEmailID());
+            final UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getEmailID());
 
-	private void authenticate(String emailID, String password) throws Exception {
-		try {
-			authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(emailID, password));
-		} catch (DisabledException e) {
-			throw new Exception("USER_DISABLED", e);
-		} catch (BadCredentialsException e) {
-			throw new Exception("INVALID_CREDENTIALS", e);
-		}
-	}
+            final String token = jwtTokenUtil.generateToken(userDetails);
+
+            return ResponseEntity.ok(new JwtResponse(token));
+        } catch (Exception e) {
+            logger.error("Error authenticating user", e);
+            throw e;
+        }
+    }
+
+    @RequestMapping(value = "users/createuser", method = RequestMethod.POST)
+    public ResponseEntity<?> saveUser(@RequestBody Users user) throws Exception {
+        try {
+            user.setCreatedTime(new Date());
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            Users savedUser = userRepo.save(user);
+
+            logger.info("User created successfully: " + savedUser.getEmail()+" ,user id "+savedUser.getUserID());
+            return ResponseEntity.ok(savedUser);
+        } catch (Exception e) {
+            logger.error("Error creating user", e);
+            throw e;
+        }
+    }
+
+    private void authenticate(String emailID, String password) throws Exception {
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(emailID, password));
+        } catch (DisabledException e) {
+            throw new Exception("USER_DISABLED", e);
+        } catch (BadCredentialsException e) {
+            throw new Exception("INVALID_CREDENTIALS", e);
+        }
+    }
 }
