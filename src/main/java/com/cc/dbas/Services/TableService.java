@@ -1,9 +1,11 @@
 package com.cc.dbas.Services;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -187,6 +189,100 @@ public class TableService {
             // Save the updated table details
             tableRepo.save(tableDetails);
 
+        } else {
+            throw new RuntimeException("Table not found");
+        }
+    }
+    
+    
+    @Transactional
+    public void changeColumn(int tableId, String oldColumnName, String newColumnName, String newDataType) {
+        // Fetch existing table details
+        Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+        if (optionalTableDetails.isPresent()) {
+            TableDetails tableDetails = optionalTableDetails.get();
+
+            // Get the schema name
+            Optional<Schema> optionalSchema = schemaRepo.findById(tableDetails.getSchemaId());
+            if (!optionalSchema.isPresent()) {
+                throw new RuntimeException("Schema not found");
+            }
+
+            String schemaName = optionalSchema.get().getSchemaName();
+            String tableName = tableDetails.getTableName();
+
+            // Execute native query to change the column name and datatype
+            String changeColumnQuery = "ALTER TABLE " + schemaName + "." + tableName +
+                    " CHANGE COLUMN " + oldColumnName + " " + newColumnName + " " + newDataType;
+
+            entityManager.createNativeQuery(changeColumnQuery).executeUpdate();
+
+            Map<String, String> columns = tableDetails.getColumns();
+            columns.remove(oldColumnName);  
+            columns.put(newColumnName, newDataType);  
+            tableDetails.setColumns(columns);
+            tableDetails.setUpdatedDatetime(new Date());
+
+            // Save the updated table details
+            tableRepo.save(tableDetails);
+        } else {
+            throw new RuntimeException("Table not found");
+        }
+    }
+    
+    
+    public List<Map<String, String>> getAllColumnsByTableId(int tableId) {
+        // Fetch existing table details
+        Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+        if (optionalTableDetails.isPresent()) {
+            TableDetails tableDetails = optionalTableDetails.get();
+
+            // Deserialize the columns string into a Map
+            Map<String, String> columns = tableDetails.getColumns();
+
+            // Convert Map entries into a List of Maps with column names and data types
+            List<Map<String, String>> columnList = columns.entrySet().stream()
+                    .map(entry -> {
+                        Map<String, String> columnMap = new HashMap<>();
+                        columnMap.put("columnName", entry.getKey());
+                        columnMap.put("dataType", entry.getValue());
+                        return columnMap;
+                    })
+                    .collect(Collectors.toList());
+
+            return columnList;
+        } else {
+            throw new RuntimeException("Table not found");
+        }
+    }
+    
+    @Transactional
+    public TableDetails copyTable(int tableId, String newTableName) {
+        Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+        if (optionalTableDetails.isPresent()) {
+            TableDetails sourceTable = optionalTableDetails.get();
+
+            // Create a copy of the table
+            TableDetails newTable = new TableDetails();
+            newTable.setSchemaId(sourceTable.getSchemaId());
+            newTable.setTableName(newTableName);
+            newTable.setColumns(sourceTable.getColumns());
+            newTable.setCreatedDatetime(new Date());
+            newTable.setUpdatedDatetime(new Date());
+
+            // Save the new table details
+            newTable = tableRepo.save(newTable);
+            
+            Optional<Schema> optionalSchema = schemaRepo.findById(sourceTable.getSchemaId());
+            String schemaName = optionalSchema.get().getSchemaName();
+
+
+            // Execute native query to create the table in the database
+            String createTableQuery = "CREATE TABLE " + schemaName + "." + newTableName +
+                    " AS SELECT * FROM " +schemaName + "." + sourceTable.getTableName();
+            entityManager.createNativeQuery(createTableQuery).executeUpdate();
+
+            return newTable;
         } else {
             throw new RuntimeException("Table not found");
         }

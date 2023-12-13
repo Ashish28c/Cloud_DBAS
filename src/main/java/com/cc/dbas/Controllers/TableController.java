@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -110,5 +111,51 @@ public class TableController {
         }
     }
     
+    
+    @PutMapping("/updateColumn")
+    public ResponseEntity<ApiResponse> changeColumn(
+            @RequestParam int tableId,
+            @RequestParam String oldColumnName,
+            @RequestParam String newColumnName,
+            @RequestParam String newDataType
+    ) {
+        try {
+            tableService.changeColumn(tableId, oldColumnName, newColumnName, newDataType);
+            ApiResponse response = new ApiResponse(200, "Column changed successfully", null);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            ApiResponse response = ApiResponse.INTERNAL_SERVER_ERROR;
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
+    @GetMapping("/getAllColumns")
+    public ResponseEntity<ApiResponse> getAllColumnsByTableId(@RequestParam int tableId) {
+        try {
+            List<Map<String, String>> columns = tableService.getAllColumnsByTableId(tableId);
+            ApiResponse response = new ApiResponse(200, "Columns retrieved successfully", columns);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            ApiResponse response = ApiResponse.INTERNAL_SERVER_ERROR;
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    
+    @PostMapping("/copyTable")
+    public ResponseEntity<ApiResponse> copyTable(
+            @RequestParam int tableId,
+            @RequestParam String newTableName
+    ) {
+        try {
+            TableDetails copiedTable = tableService.copyTable(tableId, newTableName);
+            ApiResponse response = new ApiResponse(201, "Table copied successfully", copiedTable);
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+        } catch (Exception e) {
+            ApiResponse response = ApiResponse.INTERNAL_SERVER_ERROR;
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
     
 }
