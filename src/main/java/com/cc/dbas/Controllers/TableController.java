@@ -1,12 +1,19 @@
 package com.cc.dbas.Controllers;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.poi.ss.usermodel.Workbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -14,14 +21,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.cc.dbas.Services.TableService;
 import com.cc.dbas.entity.ApiResponse;
 import com.cc.dbas.entity.ColumnDefinition;
 import com.cc.dbas.entity.TableDetails;
+
+import jakarta.servlet.http.HttpServletResponse;
+
+
 
 @RestController
 @CrossOrigin
@@ -177,5 +188,42 @@ public class TableController {
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportTableToExcel(@RequestParam int tableId, HttpServletResponse response) {
+        try {
+            Workbook excelWorkbook = tableService.exportTableToExcel(tableId, response);
+
+            ByteArrayOutputStream excelStream = new ByteArrayOutputStream();
+            excelWorkbook.write(excelStream);
+            excelWorkbook.close();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Disposition", "attachment; filename=table.xlsx");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(excelStream.toByteArray());
+        } catch (IOException e) {
+            // Handle the exception, log, or return an error response
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @GetMapping("/exportToPDF")
+    public ResponseEntity<InputStreamResource> exportTableToPDF(@RequestParam int tableId, HttpServletResponse response) throws IOException {
+        // Call the service method to get the PDF stream
+        byte[] pdfBytes = tableService.exportTableToPDF(tableId, response);
+
+        // Set the content type and headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=table.pdf");
+
+        // Return the ResponseEntity with the PDF stream
+        return ResponseEntity
+                .ok()
+                .headers(headers)
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(new InputStreamResource(new ByteArrayInputStream(pdfBytes)));
+    }
 }

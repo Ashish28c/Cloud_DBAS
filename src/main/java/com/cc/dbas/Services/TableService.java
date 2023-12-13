@@ -1,5 +1,7 @@
 package com.cc.dbas.Services;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -7,6 +9,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +31,7 @@ import com.cc.dbas.entity.TableDetails;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 
 @Service
@@ -343,4 +355,164 @@ public class TableService {
             throw e;
         }
     }
+    
+    public Workbook exportTableToExcel(int tableId, HttpServletResponse response) throws IOException {
+        Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+        if (optionalTableDetails.isPresent()) {
+            TableDetails tableDetails = optionalTableDetails.get();
+
+            // Create a new workbook
+            Workbook workbook = new XSSFWorkbook();
+
+            // Create a new sheet
+            Sheet sheet = workbook.createSheet(tableDetails.getTableName());
+
+            // Create a header row
+            Row headerRow = sheet.createRow(0);
+            Map<String, String> columns = tableDetails.getColumns();
+            int cellIndex = 0;
+            for (Map.Entry<String, String> entry : columns.entrySet()) {
+                Cell cell = headerRow.createCell(cellIndex++);
+                cell.setCellValue(entry.getKey());
+            }
+
+            // Populate the data rows
+            List<Object[]> data = getDataFromDatabase(tableDetails);
+            int rowIndex = 1;
+            for (Object[] rowData : data) {
+                Row dataRow = sheet.createRow(rowIndex++);
+                int columnIndex = 0;
+                for (Object value : rowData) {
+                    Cell cell = dataRow.createCell(columnIndex++);
+                    cell.setCellValue(String.valueOf(value));
+                }
+            }
+
+            // Set content type and header for the response
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=" + tableDetails.getTableName() + ".xlsx");
+
+            // Write the workbook content to the response stream
+            workbook.write(response.getOutputStream());
+            workbook.close();
+
+            return workbook;
+        } else {
+            throw new RuntimeException("Table not found");
+        }
+    }
+    
+    
+    public List<Object[]> getDataFromDatabase(TableDetails tableDetails) {
+        try {
+            // Get the schema name
+            Optional<Schema> optionalSchema = schemaRepo.findById(tableDetails.getSchemaId());
+            if (!optionalSchema.isPresent()) {
+                throw new RuntimeException("Schema not found");
+            }
+
+            String schemaName = optionalSchema.get().getSchemaName();
+            String tableName = tableDetails.getTableName();
+
+            // Execute native query to fetch data from the table
+            String selectQuery = "SELECT * FROM " + schemaName + "." + tableName;
+            Query query = entityManager.createNativeQuery(selectQuery);
+            List<Object[]> data = query.getResultList();
+
+            logger.info("Retrieved data from the table. Table ID: {}", tableDetails.getTableId());
+            return data;
+        } catch (Exception e) {
+            logger.error("Error fetching data from the database. Table ID: {}", tableDetails.getTableId(), e);
+            throw e;
+        }
+    }
+    
+    public byte[] exportTableToPDF(int tableId, HttpServletResponse response) throws IOException {
+        try {
+            Optional<TableDetails> optionalTableDetails = tableRepo.findById(tableId);
+            if (optionalTableDetails.isPresent()) {
+                TableDetails tableDetails = optionalTableDetails.get();
+
+                List<Object[]> data = getDataFromDatabase(tableDetails);
+
+                // Create a new PDF document
+                PDDocument document = new PDDocument();
+                PDPage page = new PDPage();
+                document.addPage(page);
+
+                // Create a content stream for writing to the PDF
+                PDPageContentStream contentStream = new PDPageContentStream(document, page);
+
+                // Define font and other settings as needed
+                contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
+                float margin = 50;
+                float yStart = page.getMediaBox().getHeight() - margin;
+                float tableWidth = page.getMediaBox().getWidth() - 2 * margin;
+                float yPosition = yStart;
+
+                // Define the column headers
+                Map<String, String> columns = tableDetails.getColumns();
+                int numberOfColumns = columns.size();
+                float tableHeight = 20f;
+                float rowHeight = 20f;
+                float tableWidthMargin = tableWidth / (float) numberOfColumns;
+                float cellMargin = 2f;
+
+                // Draw the header row
+                contentStream.beginText();
+                contentStream.newLineAtOffset(margin, yPosition);
+                for (Map.Entry<String, String> entry : columns.entrySet()) {
+                    contentStream.showText(entry.getKey());
+                    contentStream.newLineAtOffset(tableWidthMargin, 0);
+                }
+                contentStream.endText();
+                yPosition -= rowHeight;
+
+                // Draw the data rows
+                for (Object[] rowData : data) {
+                    contentStream.beginText();
+                    contentStream.newLineAtOffset(margin, yPosition);
+                    int columnIndex = 0;
+                    for (Object value : rowData) {
+                        contentStream.showText(String.valueOf(value));
+                        contentStream.newLineAtOffset(tableWidthMargin, 0);
+                        columnIndex++;
+                    }
+                    contentStream.endText();
+                    yPosition -= rowHeight;
+                }
+
+                // Close the content stream and save the document to a byte array
+                contentStream.close();
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                document.save(byteArrayOutputStream);
+                document.close();
+
+                // Set content type and headers for the response
+                response.setContentType("application/pdf");
+                response.setHeader("Content-Disposition", "attachment; filename=" + tableDetails.getTableName() + ".pdf");
+
+                // Return the byte array containing the PDF data
+                return byteArrayOutputStream.toByteArray();
+            } else {
+                throw new RuntimeException("Table not found");
+            }
+        } catch (IOException e) {
+            logger.error("Error exporting table to PDF. Table ID: {}", tableId, e);
+            throw new RuntimeException("Error exporting table to PDF", e);
+        }
+    }
+    
+    private void drawText(PDPageContentStream contentStream, String text, float x, float y) throws IOException {
+        contentStream.beginText();
+        contentStream.newLineAtOffset(x, y);
+        contentStream.showText(text);
+        contentStream.endText();
+    }
+    
+    
+    
+    
+    
+    
 }
