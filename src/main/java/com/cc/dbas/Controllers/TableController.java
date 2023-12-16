@@ -212,14 +212,9 @@ public class TableController {
 
     @GetMapping("/exportToPDF")
     public ResponseEntity<InputStreamResource> exportTableToPDF(@RequestParam int tableId, HttpServletResponse response) throws IOException {
-        // Call the service method to get the PDF stream
         byte[] pdfBytes = tableService.exportTableToPDF(tableId, response);
-
-        // Set the content type and headers
         HttpHeaders headers = new HttpHeaders();
         headers.add("Content-Disposition", "attachment; filename=table.pdf");
-
-        // Return the ResponseEntity with the PDF stream
         return ResponseEntity
                 .ok()
                 .headers(headers)

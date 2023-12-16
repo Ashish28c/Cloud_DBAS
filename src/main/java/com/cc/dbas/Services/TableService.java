@@ -85,7 +85,7 @@ public class TableService {
 
             return tableDetails;
         } catch (Exception e) {
-            logger.error("Error creating table. Schema ID: {}, Table Name: {}", schemaId, tableName, e);
+            logger.error("Error creating table. Schema ID: {}, Table Name: {}", schemaId, tableName);
             throw e;
         }
     }
@@ -239,7 +239,7 @@ public class TableService {
                 throw new RuntimeException("Table not found");
             }
         } catch (Exception e) {
-            logger.error("Error deleting column. Table ID: {}, Column Name: {}", tableId, columnName, e);
+            logger.error("Error deleting column. Table ID: {}, Column Name: {}", tableId);
             throw e;
         }
     }
@@ -276,12 +276,12 @@ public class TableService {
                 // Save the updated table details
                 tableRepo.save(tableDetails);
 
-                logger.info("Column changed successfully. Table ID: {}, Old Column Name: {}, New Column Name: {}, New Data Type: {}", tableId, oldColumnName, newColumnName, newDataType);
+                logger.info("Column changed successfully. Table ID: {}, Old Column Name: {}, New Column Name: {}, New Data Type: {}");
             } else {
                 throw new RuntimeException("Table not found");
             }
         } catch (Exception e) {
-            logger.error("Error changing column. Table ID: {}, Old Column Name: {}, New Column Name: {}, New Data Type: {}", tableId, oldColumnName, newColumnName, newDataType, e);
+            logger.error("Error changing column. Table ID: {}, Old Column Name: {}, New Column Name: {}, New Data Type: {}");
             throw e;
         }
     }
@@ -351,7 +351,7 @@ public class TableService {
                 throw new RuntimeException("Table not found");
             }
         } catch (Exception e) {
-            logger.error("Error copying table. Source Table ID: {}, New Table Name: {}", tableId, newTableName, e);
+            logger.error("Error copying table. Source Table ID: {}, New Table Name: {}");
             throw e;
         }
     }
