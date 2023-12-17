@@ -13,7 +13,6 @@ public class CcDbasApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(CcDbasApplication.class, args);
 		log.info("hello started");
-		
 	}
 
 }
